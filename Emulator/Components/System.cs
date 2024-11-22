@@ -1,4 +1,5 @@
 ﻿using Emulator.Components.Storage;
+using Emulator.Mappers;
 
 namespace Emulator.Components;
 
@@ -16,8 +17,7 @@ public class VirtualSystem
     public RamMemory Ram => _ramMemory;
     public RomMemory Rom => _romMemory;
 
-    public bool testMode = false;
-    public byte[] debugMemory = new byte[256 * 256];
+    public Mapper RomMapper => _romMemory.RomData.mapper;
 
     public VirtualSystem()
     {
@@ -48,9 +48,9 @@ public class VirtualSystem
 
     public void InsertCartriadge(NESROM rom)
     {
-        Console.WriteLine($"Mapper: {rom.Mapper}");
-        Console.WriteLine($"PRG size: {rom.PRGDataSize16KB * 16} KiB");
-        Console.WriteLine($"CHR size: {rom.CHRDataSize8KB * 8} KiB");
+        Console.WriteLine($"Mapper: {rom.mapper.GetType().Name}");
+        Console.WriteLine($"PRG size: {rom.PRGDataSize16KB * 16} KiB ({rom.PRGDataSize16KB})");
+        Console.WriteLine($"CHR size: {rom.CHRDataSize8KB * 8} KiB ({rom.CHRDataSize8KB})");
         Console.WriteLine($"Nametable arrangementg: {rom.NametableArrangement}");
 
         _romMemory.LoadRom(rom);
@@ -62,91 +62,13 @@ public class VirtualSystem
     }
 
 
-    public byte Read(ushort address, ReadingAs from = 0)
-    {
-        if (testMode) return debugMemory[address];
+    public byte Read(ushort address, ReadingAs from = 0) => RomMapper.Read(this, address, from);
+    public void Write(ushort address, byte value, ReadingAs from = 0) => RomMapper.Write(this, address, value, from);
 
-        // CPU RAM / PPU pattern tables
-        if (address < 0x2000)
-            return from != ReadingAs.PPU ? _ramMemory.Read(address) : _romMemory.PPURead(address);
-
-        // Picture PU registers
-        else if (address >= 0x2000 && address < 0x4000)
-            return _ppu.ReadRegister(address);
-
-        // Audio PU registers
-        else if (address == 0x4015)
-            return _apu.ReadStatus();
-
-        // Input shit
-        else if (address == 0x4016)
-        {
-            //Console.WriteLine("Reading joy 1");
-            return 0;
-        }
-        else if (address == 0x4017)
-        {
-            //Console.WriteLine("Reading joy 2");
-            return 0;
-        }
-
-        // CHR PRG RAM and ROM
-        else if (address >= 0x4020)
-            return _romMemory.CPURead(address);
-
-        else // Open Bus
-        {
-            Console.WriteLine($"Reading in address {address:X} not implemented!");
-            return 0;
-        }
-    }
-    public void Write(ushort address, byte value, ReadingAs from = 0)
-    {
-        if (testMode)
-        {
-            debugMemory[address] = value;
-            return;
-        }
-
-        // CPU RAM / PPU pattern tables
-        if (address < 0x2000)
-        {
-            if (from != ReadingAs.PPU)
-                _ramMemory.Store(address, value);
-            else Console.WriteLine($"CHR ROM is not writealbe!");
-        }
-
-        // Picture PU registers
-        else if ((address >= 0x2000 && address < 0x4000) || address == 0x4014)
-            _ppu.WriteRegister(address, value);
-
-        // Audio PU registers
-        else if (address >= 0x4000 && address <= 0x4013) _apu.Write(address, value);
-        else if (address == 0x4015) _apu.Write(address, value);
-
-        // Input shit
-        else if (address == 0x4016)
-        {
-            //if (value == 1) Console.WriteLine("Start pooling input");
-            //else if (value == 0) Console.WriteLine("Stop pooling input");
-        }
-
-        // CHR PRG RAM and ROM
-        else if (address >= 0x4020)
-        {
-            Console.WriteLine($"PRG ROM addr ${address:X4} is not writeable!");
-        }
-
-        else
-        {
-            //Console.WriteLine($"Writing in address ${address:X} not implemented!");
-        }
-    }
-
-    public enum ReadingAs : byte
-    {
-        None = 0,
-        CPU,
-        PPU,
-    }
+}
+public enum ReadingAs : byte
+{
+    CPU,
+    PPU,
+    None
 }

@@ -33,10 +33,7 @@ public class RomMemory : Component
     {
         if (addr >= 0x4020)
         {
-            if (addr >= 0x8000)
-            {
-                return _rom?.PrgData[addr - 0x8000] ?? 0;
-            }
+            if (addr >= 0x8000 && addr <= 0xFFFF) return _rom?.PrgData[addr - 0x8000] ?? 0;
             else
             {
                 Console.WriteLine($"CPU ROM address ${addr:X4} not implemented!");

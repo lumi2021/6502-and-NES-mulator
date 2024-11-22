@@ -1,16 +1,13 @@
 ﻿using Emulator.Components.Core;
 using ImGuiNET;
-using Newtonsoft.Json.Bson;
+using Newtonsoft.Json.Linq;
 using Silk.NET.OpenGL;
-using System;
 using System.Numerics;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Emulator.Components;
 
 public class PPU : Component
 {
-
     private byte[,,] _vram_chr = new byte[16 * 32, 8, 8];
     private byte[] _vram_nametable = new byte[0x0800];
     private byte[] _vram_atbttable = new byte[0x0020];
@@ -119,24 +116,30 @@ public class PPU : Component
 
         else if (addr >= 0x3F00 && addr <= 0x3F1F)
             _vram_atbttable[addr - 0x3F00] = value;
+        else if (addr >= 0x3F20 && addr <= 0x3FFF)
+            _vram_atbttable[(addr - 0x3F00) % 0x20] = value;
 
-        _currVRAMAddr += (ushort)((OnVblank) ? incrementPerRead : incrementPerRead);//33);
+        _currVRAMAddr += incrementPerRead;
         _updateNametablesSheet = true;
     }
     private byte ReadPPUData(ushort addr)
     {
-        var gAddr = ProcessPPUDataAddress(addr);
-        byte value = 0;
+        if (addr < 0x2000) return Read(addr);
 
-        if (gAddr >= 0x2000 && gAddr < 0x3000)
-            value = _vram_nametable[gAddr - 0x2000];
+        if (addr >= 0x2000 && addr < 0x3000)
+        {
+            var gAddr = ProcessPPUDataAddress(addr);
 
-        else if (gAddr >= 0x3F00 && gAddr < 0x3F20)
-            value = _vram_atbttable[gAddr - 0x3F00];
+            return _vram_nametable[gAddr - 0x2000];
+        }
 
-        else Console.WriteLine($"Trying to read PPUDATA ${addr:X4} (invalid range)");
+        else if (addr >= 0x3F00 && addr < 0x3F20)
+            return _vram_atbttable[addr - 0x3F00];
+        else if (addr >= 0x3F20 && addr <= 0x3FFF)
+            return _vram_atbttable[(addr - 0x3F00) % 0x20];
 
-        return value;
+        Console.WriteLine($"Trying to read PPUDATA ${addr:X4} (invalid range)");
+        return 0;
     }
 
     private ushort ProcessPPUDataAddress(ushort addr)
@@ -212,8 +215,7 @@ public class PPU : Component
         Program.DrawPopup += DebugPPU;
         Program.DrawPopup += DebugVRAM;
 
-        if (!system.testMode)
-            CreateSpriteSheets();
+        CreateSpriteSheets();
     }
 
     public void ResetRomData()
@@ -298,7 +300,7 @@ public class PPU : Component
             // draw sprites on secondaryOam Queue
             foreach (var sprite in secondaryOam)
             {
-                if (sprite == null || sprite.Length != 4) continue;
+                if (sprite == null) continue;
 
                 byte spriteX = sprite[3];
 
@@ -310,7 +312,7 @@ public class PPU : Component
 
                 byte pallete = (byte)(attributes & 0b11);
 
-                int palleteIndex0 = ReadPPUData(0x3F00);
+                int palleteIndex0 = ReadPPUData(0x3F10);
                 int palleteIndex1 = ReadPPUData((ushort)(0x3F11 + pallete));
                 int palleteIndex2 = ReadPPUData((ushort)(0x3F12 + pallete));
                 int palleteIndex3 = ReadPPUData((ushort)(0x3F13 + pallete));
@@ -328,7 +330,7 @@ public class PPU : Component
                     {
                         if (py + tpy >= 240) continue;
 
-                        int pixelValue = _vram_chr[tileIndex, flipX ? (7 - tpx) : (tpx), flipY ? (7 - tpy) : (tpy)];
+                        int pixelValue = _vram_chr[tileIndex + (spritePatternTable == 0 ? 0 : 256), flipX ? (7 - tpx) : (tpx), flipY ? (7 - tpy) : (tpy)];
                         if (pixelValue == 0) continue;
 
                         var pixelIndex = (spriteX + tpx + (py + tpy) * 32 * 8) * 3;
@@ -781,6 +783,6 @@ public class PPU : Component
         return imageData;
     }
 
-    private byte Read(int addr) => system.Read((ushort)addr, VirtualSystem.ReadingAs.PPU);
+    private byte Read(int addr) => system.Read((ushort)addr, ReadingAs.PPU);
 
 }

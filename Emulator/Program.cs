@@ -70,9 +70,9 @@ public static class Program
         //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Tetris.nes"));
         //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Donkey Kong.nes"));
         //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Donkey Kong Classics.nes"));
-        _system.InsertCartriadge(RomReader.LoadFromPath("ROMs/snow.nes"));
+        //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/snow.nes"));
         //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Thwaite.nes"));
-        //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Pac-Man.nes"));
+        _system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Pac-Man.nes"));
     }
     private static void OnClose()
     {
@@ -117,6 +117,7 @@ public static class Program
     }
 
 
+    /*
     private static void RunTests()
     {
         Console.WriteLine("Initializing tests routine...");
@@ -291,6 +292,7 @@ public static class Program
             Console.ResetColor();
         }
     }
+    */
 
     private static bool CompareFlags(byte a, byte b) => (a & 0b_11001111) == (b & 0b_11001111);
     private static string GetFlagsAsString(byte v)

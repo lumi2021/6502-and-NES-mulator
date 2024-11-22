@@ -69,7 +69,7 @@ public class CPU : Component
     public CPU(VirtualSystem mb) : base(mb)
     {
         Program.DrawPopup += DebugCPU;
-        Program.DrawPopup += DebugHistory;
+        //Program.DrawPopup += DebugHistory;
     }
 
     public void Reset()
@@ -115,15 +115,15 @@ public class CPU : Component
 
         var (operation, mode) = DecodeOpCode(opCode);
 
-        _lastExecutedInstructions.Add(new ExecutionFrame(
-            (ushort)(progCounter - 1),
-            operation, mode, flags
-        ));
-        if (_lastExecutedInstructions.Count >= 60)
-        {
-            _lastExecutedInstructions.RemoveRange(0, _lastExecutedInstructions.Count - 60);
-        }
-        _executionHistoryUpdated = true;
+        //_lastExecutedInstructions.Add(new ExecutionFrame(
+        //    (ushort)(progCounter - 1),
+        //    operation, mode, flags
+        //));
+        //if (_lastExecutedInstructions.Count >= 60)
+        //{
+        //    _lastExecutedInstructions.RemoveRange(0, _lastExecutedInstructions.Count - 60);
+        //}
+        //_executionHistoryUpdated = true;
 
         Execute(operation, mode);
     }

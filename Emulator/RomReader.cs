@@ -1,4 +1,6 @@
-﻿namespace Emulator;
+﻿using Emulator.Mappers;
+
+namespace Emulator;
 
 internal static class RomReader
 {
@@ -22,11 +24,12 @@ public class NESROM
     private byte[] prgData = [];
     private byte[] chrData = [];
 
+    public Mapper mapper;
+
     // Header data
     public byte PRGDataSize16KB => header[4];
     public byte CHRDataSize8KB => header[5];
 
-    public byte Mapper => (byte)((header[6] >> 4) | (header[7] & 0xF0));
     public bool Trainer => ((header[6] >> 6) & 1) == 1;
     public NametableMirroring NametableArrangement => (((header[6] >> 8) & 1) == 0) ? NametableMirroring.Horizontal : NametableMirroring.Vertical;
 
@@ -51,6 +54,18 @@ public class NESROM
         dl = CHRDataSize8KB * 8 * 1024;
         chrData = data[b..(b + dl)];
         b += dl;
+
+        mapper = GetMapper((byte)((header[6] >> 4) | (header[7] & 0xF0)), this);
+    }
+
+    private static Mapper GetMapper(byte mapper, NESROM parent)
+    {
+        return mapper switch
+        {
+            0x00 => new NROM(parent),
+
+            _ => throw new NotImplementedException($"mapper {mapper}")
+        };
     }
 }
 
