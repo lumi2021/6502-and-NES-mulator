@@ -11,11 +11,16 @@ public class VirtualSystem
     private RamMemory _ramMemory;
     private RomMemory _romMemory;
 
+    private JoyController _joy1;
+    //private JoyController _joy2;
+
     public CPU Cpu => _cpu;
     public PPU Ppu => _ppu;
     public APU Apu => _apu;
     public RamMemory Ram => _ramMemory;
     public RomMemory Rom => _romMemory;
+
+    public JoyController Joy1 => _joy1;
 
     public Mapper RomMapper => _romMemory.RomData.mapper;
 
@@ -26,6 +31,8 @@ public class VirtualSystem
         _apu = new(this);
         _ramMemory = new(this);
         _romMemory = new(this);
+
+        _joy1 = new(0, this, Program.input);
     }
 
 

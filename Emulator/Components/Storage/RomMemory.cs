@@ -1,5 +1,4 @@
-﻿
-using Emulator.Components.Core;
+﻿using Emulator.Components.Core;
 
 namespace Emulator.Components.Storage;
 

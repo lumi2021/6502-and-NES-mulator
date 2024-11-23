@@ -31,7 +31,7 @@ public class NESROM
     public byte CHRDataSize8KB => header[5];
 
     public bool Trainer => ((header[6] >> 6) & 1) == 1;
-    public NametableMirroring NametableArrangement => (((header[6] >> 8) & 1) == 0) ? NametableMirroring.Horizontal : NametableMirroring.Vertical;
+    public NametableArrangement NametableArrangement => (((header[6] >> 8) & 1) == 0) ? NametableArrangement.Horizontal : NametableArrangement.Vertical;
 
     public byte[] PrgData => [.. prgData];
     public byte[] ChrData => [.. chrData];
@@ -69,7 +69,7 @@ public class NESROM
     }
 }
 
-public enum NametableMirroring : byte
+public enum NametableArrangement : byte
 {
     Horizontal,
     Vertical,

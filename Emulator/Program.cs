@@ -14,7 +14,7 @@ public static class Program
 {
     private static IWindow _window = null!;
     public static GL gl = null!;
-    private static IInputContext _input = null!;
+    public static IInputContext input = null!;
     private static ImGuiController _imgui = null!;
     private static VirtualSystem _system = null!;
 
@@ -51,12 +51,12 @@ public static class Program
     private static void OnLoad()
     {
         gl = _window.CreateOpenGL();
-        _input = _window.CreateInput();
+        input = _window.CreateInput();
 
         _window.Center();
         _window.WindowState = WindowState.Maximized;
 
-        _imgui = new(gl, _window, _input);
+        _imgui = new(gl, _window, input);
         var io = ImGui.GetIO();
         io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
         io.ConfigFlags |= ImGuiConfigFlags.ViewportsEnable;
@@ -72,7 +72,8 @@ public static class Program
         //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Donkey Kong Classics.nes"));
         //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/snow.nes"));
         //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Thwaite.nes"));
-        _system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Pac-Man.nes"));
+        //_system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Pac-Man.nes"));
+        _system.InsertCartriadge(RomReader.LoadFromPath("ROMs/Ice Climber.nes"));
     }
     private static void OnClose()
     {

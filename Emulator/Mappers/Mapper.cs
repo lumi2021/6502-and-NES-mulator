@@ -27,10 +27,7 @@ public abstract class Mapper(NESROM rom)
 
         // Input shit
         else if (address == 0x4016)
-        {
-            //Console.WriteLine("Reading joy 1");
-            return 0;
-        }
+            return sys.Joy1.InputBitRegister;
         else if (address == 0x4017)
         {
             //Console.WriteLine("Reading joy 2");
@@ -69,8 +66,8 @@ public abstract class Mapper(NESROM rom)
         // Input shit
         else if (address == 0x4016)
         {
-            //if (value == 1) Console.WriteLine("Start pooling input");
-            //else if (value == 0) Console.WriteLine("Stop pooling input");
+            sys.Joy1.Mode = value == 0 ? JoyControllerMode.Read : JoyControllerMode.Write;
+            //sys.Joy2.Mode = value == 0 ? JoyControllerMode.Read : JoyControllerMode.Write;
         }
 
         // CHR PRG RAM and ROM

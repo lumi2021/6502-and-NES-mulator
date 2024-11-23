@@ -1,6 +1,5 @@
 ﻿using Emulator.Components.Core;
 using ImGuiNET;
-using Newtonsoft.Json.Linq;
 using Silk.NET.OpenGL;
 using System.Numerics;
 
@@ -30,7 +29,9 @@ public class PPU : Component
 
     private ushort _currVRAMAddr = 0;
     private ushort _tempVRAMAddr = 0;
-    private byte _fineXScroll = 0;
+
+    private byte _scrollX = 0;
+    private byte _scrollY = 0;
 
     private byte _oamdma = 0;
 
@@ -83,11 +84,12 @@ public class PPU : Component
         if (!_wLatch)
         {
             _tempVRAMAddr = (ushort)((_tempVRAMAddr & 0b_11111111_11100000) | (value >> 3));
-            _fineXScroll = (byte)(value & 0b_0000_0111);
+            _scrollX = value; 
         }
         else
         {
             _tempVRAMAddr = (ushort)((_tempVRAMAddr * 0b_000_11_00000_11111) | ((value & 0b_00000_111) << 12) | ((value & 0b_11111_000) << 5));
+            _scrollY = value;
         }
 
         _wLatch = !_wLatch;
@@ -109,10 +111,13 @@ public class PPU : Component
 
     private void WritePPUData(byte value)
     {
-        ushort addr = ProcessPPUDataAddress(_currVRAMAddr);
+        ushort addr = _currVRAMAddr;
 
         if (addr >= 0x2000 && addr < 0x3000)
+        {
+            addr = ProcessNametableMirroring(addr);
             _vram_nametable[addr - 0x2000] = value;
+        }
 
         else if (addr >= 0x3F00 && addr <= 0x3F1F)
             _vram_atbttable[addr - 0x3F00] = value;
@@ -128,7 +133,7 @@ public class PPU : Component
 
         if (addr >= 0x2000 && addr < 0x3000)
         {
-            var gAddr = ProcessPPUDataAddress(addr);
+            var gAddr = ProcessNametableMirroring(addr);
 
             return _vram_nametable[gAddr - 0x2000];
         }
@@ -141,8 +146,16 @@ public class PPU : Component
         Console.WriteLine($"Trying to read PPUDATA ${addr:X4} (invalid range)");
         return 0;
     }
+    private byte[] ReadPPUDataRange(ushort addr, int length)
+    {
+        byte[] a = new byte[length];
 
-    private ushort ProcessPPUDataAddress(ushort addr)
+        for (int i = 0; i < length; i++) a[i] = ReadPPUData((ushort)(addr + i));
+
+        return a;
+    }
+
+    private ushort ProcessNametableMirroring(ushort addr)
     {
         int gAddr = addr;
 
@@ -183,22 +196,16 @@ public class PPU : Component
 
             var mirroring = system.Rom.RomData.NametableArrangement;
 
-            if (mirroring == NametableMirroring.Horizontal)
+            if (mirroring == NametableArrangement.Vertical)
             {
                 if (nametableIndex == 0 || nametableIndex == 2) gAddr += 0x2000;
                 if (nametableIndex == 1 || nametableIndex == 3) gAddr += 0x2400;
             }
-            else if (mirroring == NametableMirroring.Vertical)
+            else
             {
                 if (nametableIndex == 0 || nametableIndex == 1) gAddr += 0x2000;
                 if (nametableIndex == 2 || nametableIndex == 3) gAddr += 0x2400;
             }
-        }
-        else if (gAddr >= 0x3F20 && gAddr <= 0x3FFF)
-        {
-            gAddr -= 0x3F20;
-            gAddr %= 0x0200;
-            gAddr += 0x3F00;
         }
 
         return (ushort)gAddr;
@@ -244,16 +251,27 @@ public class PPU : Component
     public void Draw()
     {
         // rendering background
-        for (int tx = 0; tx < 32; tx++)
+
+        byte _finex = 0; //(byte)(_scrollX & 0b_0000_0111);
+        byte _finey = 0; //(byte)(_scrollY & 0b_0000_0111);
+
+        for (int tx = -1; tx < 32; tx++)
         {
-            for (int ty = 0; ty < 30; ty++)
+            for (int ty = -1; ty < 30; ty++)
             {
 
-                int tileAddr = tx + ty * 32;
-                int palleteAddr = 0x3C0 + (int)Math.Floor(tx/4.0) + ((int)Math.Floor(ty/4.0) * 8);
+                int _stx = tx + (_scrollX >> 3);
+                int _sty = ty + (_scrollY >> 3);
+
+                int tileAddr = _stx + _sty * 32;
+                int palleteAddr = tx/4 + ty/4 * 8;
+
+                //if (tileAddr >= 0x400 - 0x40) tileAddr += 0x40;
+                //if (tileAddr >= 0x800 - 0x40) tileAddr += 0x40;
+                //if (tileAddr >= 0xC00 - 0x40) tileAddr += 0x40;
 
                 byte tileindex = ReadPPUData((ushort)(0x2000 + tileAddr));
-                byte paleteInfo = ReadPPUData((ushort)(0x2000 + palleteAddr));
+                byte paleteInfo = ReadPPUData((ushort)(0x23C0 + palleteAddr));
 
                 int tIndex = (((tx/2) % 2) + (((ty/2) % 2) * 2));
                 int attributeIndex = ((paleteInfo >> (tIndex * 2)) & 0b_11) * 4;
@@ -271,9 +289,9 @@ public class PPU : Component
                 for (int px = 0; px < 8; px++) for (int py = 0; py < 8; py++)
                     {
                         int pixelValue = _vram_chr[tileindex + (backgroundPatternTable == 1 ? 256 : 0), px, py];
-                        //pixelValue = ((px/4) % 2) + ((py/4) % 2) * 2;
 
-                        var pixelIndex = ((tx * 8 + px) + (ty * 8 + py) * 32 * 8) * 3;
+                        var pixelIndex = ((tx * 8 + px - _finex) + (ty * 8 + py - _finey) * 32 * 8) * 3;
+                        if (pixelIndex < 0 || pixelIndex >= _video_out_buffer.Length) continue;
 
                         _video_out_buffer[pixelIndex + 0] = colors[pixelValue].r;
                         _video_out_buffer[pixelIndex + 1] = colors[pixelValue].g;
@@ -293,7 +311,7 @@ public class PPU : Component
             for (int sprite = 0; sprite < 64; sprite++)
             {
                 var spriteY = _vram_oam[sprite * 4];
-                if (spriteY > 0 && spriteY == py) tempSecondaryOam[spriteIndex++] = _vram_oam[(sprite * 4)..((sprite+1) * 4)];
+                if (spriteY > 0 && spriteY == py) tempSecondaryOam[spriteIndex++] = _vram_oam[(sprite * 4)..((sprite + 1) * 4)];
                 if (spriteIndex == 8) break;
             }
 
@@ -449,14 +467,16 @@ public class PPU : Component
             ImGui.Text($"${_currVRAMAddr:X4} ({_currVRAMAddr:b16})");
 
             ImGui.SeparatorText("Scroll:");
-            //ImGui.TextDisabled("Coarse X scroll:"); ImGui.SameLine();
-            //ImGui.Text($"{_pp}");
+            ImGui.TextDisabled("X scroll:"); ImGui.SameLine();
+            ImGui.Text($"{_scrollX}");
+            ImGui.TextDisabled("Y scroll:"); ImGui.SameLine();
+            ImGui.Text($"{_scrollY}");
         }
         ImGui.End();
 
         ImGui.Begin("Sprite Sheet View", ImGuiWindowFlags.AlwaysAutoResize);
         {
-            ImGui.Image((nint)(_viewingSheet == 0 ? _spriteSheetHandlerLeft : _spriteSheetHandlerRight), new(400, 400));
+            ImGui.Image((nint)(_viewingSheet == 0 ? _spriteSheetHandlerLeft : _spriteSheetHandlerRight), new(700, 700));
 
             if (ImGui.Button("Left Sheet")) _viewingSheet = 0;
             ImGui.SameLine();
@@ -499,6 +519,8 @@ public class PPU : Component
     {
         ImGui.Begin("VRAM View", ImGuiWindowFlags.AlwaysAutoResize);
         {
+            ImDrawListPtr drawList = ImGui.GetWindowDrawList(); ;
+
             ImGui.SeparatorText("Pattern Tables:");
 
             ImGui.Image((nint)_spriteSheetHandlerLeft, new(300, 300)); ImGui.SameLine();
@@ -511,8 +533,18 @@ public class PPU : Component
 
             float imageAspectRatio = renderRes.X / renderRes.Y;
             Vector2 finalSize = new(maxW, maxW / imageAspectRatio);
+            float scale = finalSize.X / renderRes.X / 2;
+
+            var cp = ImGui.GetCursorScreenPos();
 
             ImGui.Image((nint)_nametablesSheetHandler, finalSize);
+
+            drawList.AddRect(
+                cp + (new Vector2(_scrollX * scale, _scrollY * scale)),
+                cp + (new Vector2((_scrollX + 256) * scale, (_scrollY + 240) * scale)),
+                ImGui.GetColorU32(new Vector4(1f, 0f, 0f, 1f))
+            );
+
             if (ImGui.Checkbox("Show attributes", ref _showNametablesAttributeTable)) _updateNametablesSheet = true;
 
             ImGui.NewLine();
@@ -545,7 +577,6 @@ public class PPU : Component
 
             ImGui.TextDisabled("Background:");
 
-            var drawList = ImGui.GetWindowDrawList();
             var cursorPos = ImGui.GetCursorScreenPos();
             var cpx = cursorPos.X;
             var cpy = cursorPos.Y;
